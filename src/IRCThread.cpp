@@ -24,6 +24,8 @@
  */
 
 #include <cstring>
+#include <chrono>
+#include <thread>
 #include "IRCThread.h"
 #include "CommandHandler.h"
 #include "Config.h"
@@ -63,7 +65,7 @@ void IRCThread::run(const Config *cfg)
 void IRCThread::connect(irc_callbacks_t callbacks, const char *server, unsigned short port)
 {
 	std::cout << "Debut du thread connexion" << std::endl;
-	while (m_run) {
+	//while (m_run) {
 		m_irc_session = irc_create_session(&callbacks);
 
 		if (!m_irc_session) {
@@ -94,7 +96,12 @@ void IRCThread::connect(irc_callbacks_t callbacks, const char *server, unsigned 
 		}
 
 		std::cout << "Connection done !" << std::endl;
-	}
+	//}
+}
+
+void IRCThread::stop()
+{
+	irc_disconnect(m_irc_session);
 }
 
 void IRCThread::event_connect(irc_session_t *session, const char *event, const char *origin,

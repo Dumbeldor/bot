@@ -47,6 +47,7 @@ public:
 	void connect(irc_callbacks_t callbacks, const char *server, unsigned short port);
 
 	void add_text(const std::string &text);
+	void stop();
 
 private:
 	static void event_join(irc_session_t *session, const char *event, const char *origin, const char **params, unsigned int count);
