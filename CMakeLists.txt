@@ -13,5 +13,7 @@ include_directories(/usr/local/include
 include_directories(/usr/local/include/lua53)
 link_directories(/usr/local/lib)
 link_directories(/usr/local/lib64)
+include_directories(lib/winterwind/include)
 
+add_subdirectory(lib)
 add_subdirectory(src)

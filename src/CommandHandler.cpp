@@ -31,13 +31,22 @@
 #include "HttpClient.h"
 #include "Console.h"
 #include "Config.h"
+#include <extras/gitlabapiclient.h>
+#include <sstream>
+
+using namespace winterwind::extras;
 
 static const ChatCommand COMMANDHANDLERFINISHER = {nullptr, nullptr, nullptr, ""};
 
 ChatCommand *CommandHandler::getCommandTable()
 {
+	static ChatCommand gitlabCommandTable[] {
+			{"issue", &CommandHandler::handle_command_gitlab_issue, nullptr, "Usage: .gitlab issue <issue_id>"},
+			COMMANDHANDLERFINISHER,
+	};
 	static ChatCommand globalCommandTable[] = {
 			{"weather", &CommandHandler::handle_command_weather, nullptr, "Usage: .weather <ville>"},
+			{"gitlab", nullptr, gitlabCommandTable, "Usage: .gitlab <issue>" },
 			{"chuck_norris", &CommandHandler::handle_command_chuck_norris, nullptr, "Usage: .chuck_norris"},
 			{"joke", &CommandHandler::handle_command_joke, nullptr, "Usage: .joke"},
 			{"vdm", &CommandHandler::handle_command_vdm, nullptr, "Usage: .vdm"},
@@ -294,4 +303,58 @@ bool CommandHandler::handle_command_quote(const std::string &args, std::string &
 	http.detach();
 	msg = json_value["data"][0]["text"].asString();
 	return true;
+}
+
+bool CommandHandler::handle_command_gitlab_issue(const std::string &args, std::string &msg,
+		const Permission &permission)
+{
+	uint32_t issue_id;
+	try {
+		issue_id = std::stoi(args);
+	} catch (std::invalid_argument &) {
+		msg = "Invalid argument.";
+		return false;
+	}
+
+	std::string gitlab_project = m_cfg->get_channel_gitlab_project_name(m_cfg->get_irc_channel_configs().begin()->first);
+	std::string gitlab_ns = m_cfg->get_channel_gitlab_project_namespace(m_cfg->get_irc_channel_configs().begin()->first);
+
+	// Add CACHE (WIP)
+
+	// End cache
+
+	GitlabAPIClient gitlab_client(m_cfg->get_gitlab_uri(),
+			m_cfg->get_gitlab_api_key());
+	Json::Value result;
+	uint32_t project_id = get_gitlab_project_id(gitlab_project, gitlab_ns, gitlab_client);
+
+	if (project_id == 0 || gitlab_client.get_issue(project_id, issue_id, result) != GITLAB_RC_OK) {
+		msg = "This issue does not exist";
+		return true;
+	}
+
+	std::stringstream message;
+	message << std::string("Issue #") << issue_id
+		   << " (par " << result["author"]["name"].asString()
+		   << ", " << result["state"].asString() << "): " << result["title"].asString()
+		   << " => " << result["web_url"].asString() << std::endl;
+	msg = message.str();
+	return true;
+}
+
+uint32_t CommandHandler::get_gitlab_project_id(const std::string &project, const std::string &ns,
+											   GitlabAPIClient &gitlab_client)
+{
+	uint32_t project_id = 0;
+
+	std::string proj_res = "";
+	Json::Value p_result;
+	GitlabRetCod rc = gitlab_client.get_project_ns(project, ns, p_result);
+	if (rc != GITLAB_RC_OK) {
+		return 0;
+	}
+
+	project_id = p_result["id"].asUInt();
+
+	return project_id;
 }

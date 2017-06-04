@@ -207,6 +207,10 @@ public:
 		m_twitter_access_token_secret = twitter_access_token_secret;
 	}
 
+	const std::vector<std::string> get_irc_channels() const;
+	const std::string get_channel_gitlab_project_name(const std::string &channel) const;
+	const std::string get_channel_gitlab_project_namespace(const std::string &channel) const;
+
 private:
 	bool m_httpd_enabled = true;
 	uint16_t m_httpd_port = 8080;
@@ -232,10 +236,4 @@ private:
 	std::string m_twitter_consumer_secret = "";
 	std::string m_twitter_access_token = "";
 	std::string m_twitter_access_token_secret = "";
-
-
-	const std::vector<std::string> get_irc_channels() const;
-	const std::string get_channel_gitlab_project_name(const std::string &channel) const;
-	const std::string get_channel_gitlab_project_namespace(const std::string &channel) const;
-
 };

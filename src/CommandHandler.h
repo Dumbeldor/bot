@@ -30,6 +30,14 @@ class IRCThread;
 class CommandHandler;
 class Config;
 
+namespace winterwind
+{
+	namespace extras
+	{
+		class GitlabAPIClient;
+	}
+}
+
 enum Permission : uint8_t
 {
 	USER,
@@ -73,6 +81,10 @@ public:
 	bool handle_command_chuck_norris(const std::string &args, std::string &msg, const Permission &permission);
 	bool handle_command_joke(const std::string &args, std::string &msg, const Permission &permission);
 	bool handle_command_quote(const std::string &args, std::string &msg, const Permission &permission);
+
+	bool handle_command_gitlab_issue(const std::string &args, std::string &msg, const Permission &permission);
+	uint32_t get_gitlab_project_id(const std::string &project,
+			const  std::string &ns, winterwind::extras::GitlabAPIClient &gitlab_client);
 
 	IRCThread *m_irc_thread = nullptr;
 	const Config *m_cfg = nullptr;

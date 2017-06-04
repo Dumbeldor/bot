@@ -17,10 +17,13 @@ set(SOURCE_FILES
         Console.cpp
         HttpClient.cpp
         Config.cpp
+        Github.cpp
         )
 set(PROJECT_LIBS
         ircclient
         yaml-cpp
+        winterwind
+        winterwind_extras
         )
 
 if (ENABLE_UNITTESTS)
