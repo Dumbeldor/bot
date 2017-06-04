@@ -25,6 +25,7 @@
 
 #pragma once
 #include <iostream>
+#include <core/utils/threads.h>
 
 class IRCThread;
 class CommandHandler;
@@ -60,11 +61,15 @@ enum ChatCommandSearchResult : uint8_t
 	CHAT_COMMAND_UNKNOWN_SUBCOMMAND,
 };
 
-class CommandHandler {
+class CommandHandler: public Thread
+{
 public:
-	CommandHandler(IRCThread *irc_thread, const Config *cfg) : m_irc_thread(irc_thread), m_cfg(cfg) {};
+	CommandHandler(IRCThread *irc_thread, const Config *cfg, const std::string &text, const Permission &permission);
 	~CommandHandler() {};
-	bool handle_command(const std::string &text, std::string &msg, const Permission &permission);
+
+	void *run();
+
+	bool handle_command(std::string &msg);
 
 public:
 	ChatCommandSearchResult find_command(ChatCommand *table, const char *&text,
@@ -87,6 +92,8 @@ public:
 			const  std::string &ns, winterwind::extras::GitlabAPIClient &gitlab_client);
 
 	IRCThread *m_irc_thread = nullptr;
+	const std::string &m_text;
+	const Permission &m_permission;
 	const Config *m_cfg = nullptr;
 };
 

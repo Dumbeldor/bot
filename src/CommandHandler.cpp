@@ -38,6 +38,24 @@ using namespace winterwind::extras;
 
 static const ChatCommand COMMANDHANDLERFINISHER = {nullptr, nullptr, nullptr, ""};
 
+CommandHandler::CommandHandler(IRCThread *irc_thread, const Config *cfg, const std::string &text, const Permission &permission) : Thread(),
+		m_irc_thread(irc_thread), m_cfg(cfg), m_text(text), m_permission(permission)
+{
+
+}
+
+void* CommandHandler::run()
+{
+	Thread::set_thread_name("CommandHandler");
+
+	ThreadStarted();
+
+	std::string msg;
+	handle_command(msg);
+
+	return nullptr;
+}
+
 ChatCommand *CommandHandler::getCommandTable()
 {
 	static ChatCommand gitlabCommandTable[] {
@@ -70,25 +88,28 @@ bool CommandHandler::is_permission(const Permission &permission_required, const 
 	return true;
 }
 
-bool CommandHandler::handle_command(const std::string &text, std::string &msg, const Permission &permission)
+bool CommandHandler::handle_command(std::string &msg)
 {
 	ChatCommand *command = nullptr;
 	ChatCommand *parentCommand = nullptr;
 
-	const char *ctext = &(text.c_str())[1];
+	const char *ctext = &(m_text.c_str())[1];
 
 	ChatCommandSearchResult res = find_command(getCommandTable(), ctext, command, &parentCommand);
 	switch (res) {
 		case CHAT_COMMAND_OK:
-			return (this->*(command->Handler))(ctext, msg, permission);
+			(this->*(command->Handler))(ctext, msg, m_permission);
+			break;
 		case CHAT_COMMAND_UNKNOWN_SUBCOMMAND:
 			msg = command->help;
-			return true;
+			break;
 		case CHAT_COMMAND_UNKNOWN:
 			msg = "Unknown command.";
-			return false;
-
+			break;
 	}
+
+	m_irc_thread->add_text(msg);
+	stop();
 }
 
 ChatCommandSearchResult CommandHandler::find_command(ChatCommand *table, const char *&text, ChatCommand *&command,

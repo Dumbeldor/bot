@@ -38,11 +38,12 @@ void Console::run(const Config *cfg)
 {
 	std::cout << "Console run." << std::endl;
 	std::string cmd;
-	CommandHandler *command_handler = new CommandHandler(m_irc_thread, cfg);
+	CommandHandler *command_handler = nullptr;
 	std::string msg = "";
 
 	while(s_is_running && getline(std::cin, cmd)) {
-		command_handler->handle_command(cmd, msg, Permission::CONSOLE);
+		command_handler = new CommandHandler(m_irc_thread, cfg, cmd, Permission::CONSOLE);
+		command_handler->start();
 
 		std::cout << msg << std::endl;
 	}
