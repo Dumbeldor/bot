@@ -81,7 +81,9 @@ void IRCThread::connect(irc_callbacks_t callbacks, const char *server, unsigned 
 			irc_option_set(m_irc_session, LIBIRC_OPTION_SSL_NO_VERIFY);
 		}
 
-		std::cout << "Connection wait...";
+		std::cout << "Connection wait..." << std::endl;
+		std::cout << "Server : " << server << " port : " << port << " nick : " << s_iis.nick.c_str()
+				  << " Channel : '" << s_iis.channel.c_str() << "'" << std::endl;
 		// Initiate the IRC server connection
 		if (irc_connect(m_irc_session, server, port, 0, s_iis.nick.c_str(), 0, 0)) {
 			std::cout << std::endl << "Could not connect " << irc_strerror(irc_errno(m_irc_session)) << std::endl;

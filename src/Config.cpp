@@ -86,6 +86,8 @@ bool Config::load_configuration()
 		CFG_LOAD(irc_config, "name", std::string, m_irc_name);
 		CFG_LOAD(irc_config, "password", std::string, m_irc_password);
 
+		std::cout << "Config irc de base chargé" << std::endl;
+
 		if (irc_config["channels"].IsDefined()) {
 			for (const auto &channel: irc_config["channels"]) {
 				if (!channel["name"].IsDefined()) {
@@ -94,6 +96,7 @@ bool Config::load_configuration()
 					return false;
 				}
 				std::string channel_name = channel["name"].as<std::string>();
+				std::cout << "Chargement config du channel : " << channel_name << std::endl;
 
 				if (m_irc_channel_configs.find(channel_name) != m_irc_channel_configs.end()) {
 					std::cerr << "Invalid configuration: duplicate channel '"
@@ -104,10 +107,13 @@ bool Config::load_configuration()
 				m_irc_channel_configs[channel_name] = channel_config;
 				CFG_LOAD(channel, "passive", bool, channel_config->is_passive);
 
+				std::cout << "Passive : " << channel_config->is_passive << std::endl;
+
 				if (channel["allowed_commands"].IsDefined()) {
 					CFG_LOAD(channel, "allowed_commands", std::vector<std::string>,
 					channel_config->allowed_commands);
-					if (!channel_config->allowed_commands.empty()) {
+					if (channel_config->allowed_commands.empty()) {
+						std::cout << "Al commands allowed" << std::endl;
 						channel_config->all_commands_allowed = true;
 					}
 				}
