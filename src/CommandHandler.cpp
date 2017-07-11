@@ -239,6 +239,11 @@ bool CommandHandler::handle_command_help(const std::string &args, std::string &m
 
 bool CommandHandler::handle_command_weather(const std::string &args, std::string &msg, const Permission &permission)
 {
+	if (m_cfg->get_openweathermap_api_key() == "") {
+		std::cerr << "Key openweather doesn't exist !" << std::endl;
+		msg = "Key openweather doesn't exist !";
+		return false;
+	}
 	HttpClient *http_server = new HttpClient();
 	const std::string url = "http://api.openweathermap.org/data/2.5/weather?q="+args+"s&APPID="+m_cfg->get_openweathermap_api_key();
 	Json::Value json_value;
@@ -329,20 +334,32 @@ bool CommandHandler::handle_command_quote(const std::string &args, std::string &
 bool CommandHandler::handle_command_gitlab_issue(const std::string &args, std::string &msg,
 		const Permission &permission)
 {
+	std::cout << "Gitlab handler" << std::endl;
 	uint32_t issue_id;
 	try {
 		issue_id = std::stoi(args);
 	} catch (std::invalid_argument &) {
 		msg = "Invalid argument.";
+		std::cerr << "Invalid argument." << std::endl;
 		return false;
 	}
+
+	std::cout << "Load issue" << std::endl;
 
 	std::string gitlab_project = m_cfg->get_channel_gitlab_project_name(m_cfg->get_irc_channel_configs().begin()->first);
 	std::string gitlab_ns = m_cfg->get_channel_gitlab_project_namespace(m_cfg->get_irc_channel_configs().begin()->first);
 
+	if (gitlab_project == "" || gitlab_ns == "") {
+		msg = "Invalid gitlab project";
+		return false;
+	}
+
 	// Add CACHE (WIP)
 
 	// End cache
+
+	std::cout << "project : " << gitlab_project << " ns : " << gitlab_ns
+			<< "uri : " << m_cfg->get_gitlab_uri() << " key : " << m_cfg->get_gitlab_api_key() << std::endl;
 
 	GitlabAPIClient gitlab_client(m_cfg->get_gitlab_uri(),
 			m_cfg->get_gitlab_api_key());
