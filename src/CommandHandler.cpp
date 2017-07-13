@@ -31,6 +31,7 @@
 #include "HttpClient.h"
 #include "Console.h"
 #include "Config.h"
+#include "Mail.h"
 #include <extras/gitlabapiclient.h>
 #include <sstream>
 
@@ -72,6 +73,7 @@ ChatCommand *CommandHandler::getCommandTable()
 			{"say", &CommandHandler::handle_command_say, nullptr, "Usage: .say text"},
 			{"help", &CommandHandler::handle_command_help, nullptr, ""},
 			{"list", &CommandHandler::handle_command_list, nullptr, ""},
+			{"mail", &CommandHandler::handle_command_mail, nullptr, "Usage: .mail <pseudo> <message>"},
 			{"stop", &CommandHandler::handle_command_stop, nullptr, "Stop bot"},
 			COMMANDHANDLERFINISHER,
 	};
@@ -142,7 +144,7 @@ ChatCommandSearchResult CommandHandler::find_command(ChatCommand *table, const c
 
 			switch (res) {
 				case CHAT_COMMAND_OK:
-					if (parentCommand) {
+					if (parentCommand) {https://github.com/yamashi/deep-learning-tuto
 						*parentCommand = parentSubCommand ? parentSubCommand : &table[i];
 					}
 
@@ -377,6 +379,36 @@ bool CommandHandler::handle_command_gitlab_issue(const std::string &args, std::s
 		   << ", " << result["state"].asString() << "): " << result["title"].asString()
 		   << " => " << result["web_url"].asString() << std::endl;
 	msg = message.str();
+	return true;
+}
+
+bool CommandHandler::handle_command_mail(const std::string &args, std::string &msg, const Permission &permission)
+{
+	std::cout << "Command handle mail" << std::endl;
+	std::cout << "args : " << args << std::endl;
+
+	std::string pseudo = "";
+	std::string message = "";
+	const char *a = args.c_str();
+
+	while (*a != ' ' && *a != '\0') {
+		pseudo += *a;
+		++a;
+	}
+	a++;
+
+	while (*a != '\0') {
+		message += *a;
+		++a;
+	}
+
+	if (pseudo == "" || message == "") {
+		msg = "Usage : .email <pseudo> <message>";
+		return false;
+	}
+
+	msg = "Send message to " + pseudo;
+	Mail::add_mail()
 	return true;
 }
 

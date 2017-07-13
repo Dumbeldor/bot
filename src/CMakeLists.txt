@@ -18,6 +18,7 @@ set(SOURCE_FILES
         HttpClient.cpp
         Config.cpp
         Github.cpp
+        Mail.cpp
         )
 set(PROJECT_LIBS
         ircclient

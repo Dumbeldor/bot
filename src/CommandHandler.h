@@ -86,6 +86,7 @@ public:
 	bool handle_command_chuck_norris(const std::string &args, std::string &msg, const Permission &permission);
 	bool handle_command_joke(const std::string &args, std::string &msg, const Permission &permission);
 	bool handle_command_quote(const std::string &args, std::string &msg, const Permission &permission);
+	bool handle_command_mail(const std::string &args, std::string &msg, const Permission &permission);
 
 	bool handle_command_gitlab_issue(const std::string &args, std::string &msg, const Permission &permission);
 	uint32_t get_gitlab_project_id(const std::string &project,
