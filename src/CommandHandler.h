@@ -92,7 +92,7 @@ public:
 			const  std::string &ns, winterwind::extras::GitlabAPIClient &gitlab_client);
 
 	IRCThread *m_irc_thread = nullptr;
-	const std::string &m_text;
+	const std::string m_text;
 	const Permission &m_permission;
 	const Config *m_cfg = nullptr;
 };
