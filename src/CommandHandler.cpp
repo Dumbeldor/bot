@@ -408,7 +408,7 @@ bool CommandHandler::handle_command_mail(const std::string &args, std::string &m
 	}
 
 	msg = "Send message to " + pseudo;
-	Mail::add_mail()
+	Mail::add_mail(pseudo, "Dumbeldor", message);
 	return true;
 }
 

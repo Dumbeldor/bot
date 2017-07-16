@@ -29,6 +29,7 @@
 #include "IRCThread.h"
 #include "CommandHandler.h"
 #include "Config.h"
+#include "Mail.h"
 
 std::string IRCThread::s_bot_name = "mybot_new";
 irc_info_session IRCThread::s_iis = irc_info_session("server", "nick");
@@ -137,8 +138,14 @@ void IRCThread::event_join(irc_session_t *session, const char *event, const char
 	std::string pseudo = ori.substr(0, ori.find("!"));
 	std::cout << s_bot_name << " et " << s_iis.nick << std::endl;
 
-	if (strcmp(pseudo.c_str(), s_bot_name.c_str()) != 0)
-		msg = "Salut " + std::string(pseudo) + " ! Tu vas bien ?";
+	if (strcmp(pseudo.c_str(), s_bot_name.c_str()) != 0) {
+		std::string name = std::string(pseudo);
+		msg = "Salut " + name + " ! Tu vas bien ?";
+		std::string mail = "";
+		if (Mail::get_mail(name, mail)){
+			msg += " Tu as reçu un mail : " + mail;
+		}
+	}
 	else
 		msg = "Salut " + s_iis.channel + " ! Vous allez bien ? ";
 
