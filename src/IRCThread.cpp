@@ -104,6 +104,7 @@ void IRCThread::connect(irc_callbacks_t callbacks, const char *server, unsigned 
 
 void IRCThread::stop()
 {
+	Mail::delete_all_mail();
 	irc_disconnect(m_irc_session);
 }
 

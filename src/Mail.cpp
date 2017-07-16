@@ -34,7 +34,11 @@ Mail::~Mail()
 
 void Mail::add_mail(const std::string &to, const std::string &from, const std::string &msg)
 {
-	s_mails[to] = "Message de " + to + " : " + msg;
+	if (s_mails[to] != "") {
+		s_mails[to] += " |||| And message from " + from + " : " + msg;
+	}
+	else
+		s_mails[to] = "Message from " + from + " : " + msg;
 }
 
 bool Mail::get_mail(const std::string &pseudo, std::string &msg)

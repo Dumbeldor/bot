@@ -33,6 +33,8 @@ public:
 	Mail() {};
 	~Mail();
 
+	static void delete_all_mail() { s_mails.clear(); }
+
 	static void add_mail(const std::string &to, const std::string &from, const std::string &msg);
 	static bool get_mail(const std::string &pseudo, std::string &msg);
 
