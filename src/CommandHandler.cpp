@@ -257,6 +257,10 @@ bool CommandHandler::handle_command_weather(const std::string &args, std::string
 	int temp = json_value["main"]["temp"].asDouble() - 273.15;
 	int max = json_value["main"]["temp_max"].asDouble() - 273.15;
 	int min = json_value["main"]["temp_min"].asDouble() - 273.15;
+	if (temp < -200) {
+		msg = "This city is invalid !";
+		return true;
+	}
 	msg = "La température  à " + json_value["name"].asString() + " est de " + std::to_string(temp) + " degrès. (min : " +
 			std::to_string(min) + " max : " +
 			std::to_string(max) + ")";
