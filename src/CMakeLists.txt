@@ -42,8 +42,8 @@ target_link_libraries(${PROJECT_NAME} ${PROJECT_LIBS})
 target_link_libraries (${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(${PROJECT_NAME} curl)
 target_link_libraries(${PROJECT_NAME} curlpp)
-target_link_libraries(${PROJECT_NAME} jsoncpp
-                                    )
+target_link_libraries(${PROJECT_NAME} jsoncpp)
+target_link_libraries(${PROJECT_NAME} log4cplus)
 
 install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION ${BINDIR}
