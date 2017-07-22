@@ -56,6 +56,7 @@ void IRCThread::run(const Config *cfg)
 	callbacks.event_connect = &IRCThread::event_connect;
 	callbacks.event_join = &IRCThread::event_join;
 	callbacks.event_channel = &IRCThread::event_channel;
+	callbacks.event_privmsg = &IRCThread::event_privmsg;
 
 	//std::thread co(IRCThread::connect(callbacks, server, port), this);
 	// Ne sert à rien
@@ -171,8 +172,6 @@ void IRCThread::event_channel(irc_session_t *session, const char *event, const c
 		std::string msg = "";
 		CommandHandler *command_handler = new CommandHandler(that, s_cfg, params[1], Permission::USER);
 		command_handler->start();
-
-		//that->add_text(msg);
 	}
 }
 
@@ -185,4 +184,12 @@ void IRCThread::event_numeric(irc_session_t *session, const char *event, const c
 			const char **params, unsigned int count)
 {
 
+}
+
+void IRCThread::event_privmsg(irc_session_t *session, const char *event, const char *origin, const char **params, unsigned int count)
+{
+	std::string ori = (std::string) origin; 
+	std::string pseudo = ori.substr(0, ori.find("!"));
+	std::cout << "Priv msg : " << pseudo << ": " << params[1] << std::endl;
+	irc_cmd_msg(session, pseudo.c_str(), "Aye !");
 }
