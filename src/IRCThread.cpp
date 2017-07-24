@@ -188,8 +188,19 @@ void IRCThread::event_numeric(irc_session_t *session, const char *event, const c
 
 void IRCThread::event_privmsg(irc_session_t *session, const char *event, const char *origin, const char **params, unsigned int count)
 {
+	if (!irc_is_connected(session)) {
+		std::cerr << "Error: not connected to IRC on " << __FUNCTION__ << std::endl;
+		return;
+	}
+
+	if (strcmp(origin, IRCThread::s_bot_name.c_str()) == 0 || count == 1) {
+		return;
+	}
 	std::string ori = (std::string) origin; 
 	std::string pseudo = ori.substr(0, ori.find("!"));
-	std::cout << "Priv msg : " << pseudo << ": " << params[1] << std::endl;
-	irc_cmd_msg(session, pseudo.c_str(), "Aye !");
+	if (params[1][0] == '.') {
+		std::string msg = "";
+		CommandHandler *command_handler = new CommandHandler(that, s_cfg, params[1], Permission::USER);
+		command_handler->start();
+	}
 }

@@ -1,4 +1,3 @@
-include_directories(../lib/WinterWind/include)
 
 include_directories(
         /usr/include/libircclient
@@ -20,11 +19,18 @@ set(SOURCE_FILES
         Github.cpp
         Mail.cpp
         )
+
+include_directories(../lib/WinterWind/include)
+
 set(PROJECT_LIBS
         ircclient
         yaml-cpp
+        log4cplus
         winterwind
         winterwind_extras
+        curl
+        curlpp
+        jsoncpp
         )
 
 if (ENABLE_UNITTESTS)
@@ -40,10 +46,6 @@ find_package (Threads)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 target_link_libraries(${PROJECT_NAME} ${PROJECT_LIBS})
 target_link_libraries (${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT})
-target_link_libraries(${PROJECT_NAME} curl)
-target_link_libraries(${PROJECT_NAME} curlpp)
-target_link_libraries(${PROJECT_NAME} jsoncpp)
-target_link_libraries(${PROJECT_NAME} log4cplus)
 
 install(TARGETS ${PROJECT_NAME}
         RUNTIME DESTINATION ${BINDIR}

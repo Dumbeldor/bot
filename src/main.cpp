@@ -30,9 +30,14 @@
 #include "Config.h"
 #include <cstring>
 #include <thread>
+#include <log4cplus/logger.h>
 
 int main (int argc, char **argv)
 {
+	log4cplus::Logger logger = log4cplus::Logger::getRoot();
+	log4cplus::Logger irc_log = logger.getInstance(LOG4CPLUS_TEXT("irc"));
+
+
 	Config *cfg = new Config();
 	if (!cfg->load_configuration()) {
 		return 1;
