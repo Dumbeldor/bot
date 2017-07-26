@@ -25,42 +25,79 @@
 
 #pragma once
 
-#include <libircclient.h>
-#include <libirc_events.h>
-#include <iostream>
+#include <core/utils/threads.h>
+#include <extras/ircclient.h>
+#include <functional>
+#include <unordered_set>
+#include <queue>
+#include <unordered_map>
 
-class Config;
+typedef std::function<void (irc_session_t *session, const char *, const char *origin,
+							const char ** params, unsigned int count)> irc_callback_f;
 
-struct irc_info_session {
-	std::string channel;
-	std::string nick;
-
-	irc_info_session(std::string channel, std::string nick) :
-			channel(channel), nick(nick) {};
+struct IRCChannel {
+	std::string name = "";
+	std::vector<std::string> members = {};
+	std::string topic = "";
 };
 
-class IRCThread {
+class IRCThread: public Thread, public IRCClient
+{
 public:
-	IRCThread(const Config *cfg);
+	IRCThread();
 	~IRCThread();
-	void run(const Config *cfg);
-	void connect(irc_callbacks_t callbacks, const char *server, unsigned short port);
 
-	void add_text(const std::string &text);
-	void stop();
+	void *run();
+
+	const std::string &get_name()
+	{
+		std::unique_lock<std::mutex> lock(m_mutex);
+		return m_name;
+	}
+
+	const std::unordered_map<std::string, IRCChannel *> &get_channels()
+	{
+		std::unique_lock<std::mutex> lock(m_mutex);
+		return m_channels;
+	}
+
+	void on_event_connect(const std::string &origin,
+						  const std::vector<std::string> &params);
+	void on_event_join(const std::string &origin,
+					   const std::vector<std::string> &params);
+	void on_event_part(const std::string &origin,
+					   const std::vector<std::string> &params);
+	void on_event_notice(const std::string &origin,
+						 const std::vector<std::string> &params);
+	void on_event_message(const std::string &origin,
+						  const std::vector<std::string> &params);
+	void on_event_kick(const std::string &origin,
+					   const std::vector<std::string> &params);
+	void on_event_topic(const std::string &origin,
+						const std::vector<std::string> &params);
+
+	void on_event_numeric(uint32_t event_id, const std::string &origin,
+						  const std::vector<std::string> &params);
 
 private:
-	static void event_join(irc_session_t *session, const char *event, const char *origin, const char **params, unsigned int count);
-	static void event_connect(irc_session_t *session, const char *event, const char *origin, const char **params, unsigned int count);
-	static void event_numeric(irc_session_t *session, const char *event, const char *origin, const char **params, unsigned int count);
-	static void event_channel(irc_session_t *session, const char *event, const char *origin, const char **params, unsigned int count);
-	static void event_privmsg(irc_session_t *session, const char *event, const char *origin, const char **params, unsigned int count);
+	void set_name(const std::string &name)
+	{
+		std::unique_lock<std::mutex> lock(m_mutex);
+		m_name = name;
+	}
 
-	static const Config *s_cfg;
-	static irc_info_session s_iis;
-	bool m_run = true;
-	irc_session_t *m_irc_session = nullptr;
-	static std::string s_bot_name;
-	static IRCThread *that;
+	void register_channel(const std::string &channel_name);
+	void on_channel_leave(const std::string &channel_name);
+	void set_channel_topic(const std::string &channel_name, const std::string &topic);
+
+	void load_state();
+	void save_state() const;
+
+	std::string m_name = "";
+	std::mutex m_mutex;
+
+	std::unordered_map<std::string, IRCChannel *> m_channels;
+	std::unordered_map<std::string, std::queue<std::string>> m_names_queues;
 };
+
 
