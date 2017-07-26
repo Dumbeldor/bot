@@ -31,176 +31,416 @@
 #include "Config.h"
 #include "Mail.h"
 
-std::string IRCThread::s_bot_name = "mybot_new";
-irc_info_session IRCThread::s_iis = irc_info_session("server", "nick");
-IRCThread *IRCThread::that = nullptr;
-const Config *IRCThread::s_cfg = nullptr;
-
-IRCThread::IRCThread(const Config *cfg)
+IRCThread::IRCThread(): Thread(), IRCClient()
 {
-	s_iis.channel = cfg->get_irc_channel_configs().begin()->first;
-	s_iis.nick = cfg->get_irc_name();
-	that = this;
-	s_cfg = cfg;
+	load_state();
 }
 
 IRCThread::~IRCThread()
 {
-	delete that;
-}
-void IRCThread::run(const Config *cfg)
-{
-	irc_callbacks_t callbacks = { 0 };
-	irc_session_t *s;
-
-	callbacks.event_connect = &IRCThread::event_connect;
-	callbacks.event_join = &IRCThread::event_join;
-	callbacks.event_channel = &IRCThread::event_channel;
-	callbacks.event_privmsg = &IRCThread::event_privmsg;
-
-	//std::thread co(IRCThread::connect(callbacks, server, port), this);
-	// Ne sert à rien
-	//std::thread thread_connect([this, callbacks, server, port] { this->connect(callbacks, server, port); });
-	connect(callbacks, cfg->get_irc_server().c_str(), cfg->get_irc_port());
+	save_state();
 }
 
-void IRCThread::connect(irc_callbacks_t callbacks, const char *server, unsigned short port)
+
+void IRCThread::load_state()
 {
-	std::cout << "Debut du thread connexion" << std::endl;
-	//while (m_run) {
-		m_irc_session = irc_create_session(&callbacks);
+}
 
-		if (!m_irc_session) {
-			std::cout << "Could not create session" << std::endl;
-			return;
+void IRCThread::save_state() const
+{
+}
+
+
+void* IRCThread::run()
+{
+	Thread::set_thread_name("IRC");
+
+	ThreadStarted();
+
+	while (!stopRequested()) {
+		if (!create_session()) {
+			log_fatal(irc_log, "Unable to create IRC session, aborting.");
+			return nullptr;
 		}
 
-		irc_set_ctx(m_irc_session, &s_iis);
+		irc_option_set(m_irc_session, LIBIRC_OPTION_STRIPNICKS);
 
-		if (server[0] == '#' && server[1] == '#') {
-			server++;
-
-			irc_option_set(m_irc_session, LIBIRC_OPTION_SSL_NO_VERIFY);
+		{
+			std::unique_lock<std::mutex> lock(m_mutex);
+			m_name = Config::get_instance()->get_irc_name();
 		}
 
-		std::cout << "Connection wait..." << std::endl;
-		std::cout << "Server : " << server << " port : " << port << " nick : " << s_iis.nick.c_str()
-				  << " Channel : '" << s_iis.channel.c_str() << "'" << std::endl;
-		// Initiate the IRC server connection
-		if (irc_connect(m_irc_session, server, port, 0, s_iis.nick.c_str(), 0, 0)) {
-			std::cout << std::endl << "Could not connect " << irc_strerror(irc_errno(m_irc_session)) << std::endl;
-			return;
+		std::string server_password = "";
+		if (!Config::get_instance()->get_irc_password().empty()) {
+			server_password = Config::get_instance()->get_irc_name() + ":" +
+							  Config::get_instance()->get_irc_password();
 		}
 
-		std::cout << "..." << std::endl;
+		log_info(irc_log, "Connecting to " << Config::get_instance()->get_irc_server()
+										   << ":" << Config::get_instance()->get_irc_port());
+
+		if (irc_connect(m_irc_session, Config::get_instance()->get_irc_server().c_str(),
+						Config::get_instance()->get_irc_port(), NULL,
+						Config::get_instance()->get_irc_name().c_str(),
+						Config::get_instance()->get_irc_name().c_str(), NULL)) {
+			log_fatal(irc_log, "Unable to connect to IRC server "
+					<< Config::get_instance()->get_irc_server()
+					<< ", aborting.");
+			return nullptr;
+		}
 
 		if (irc_run(m_irc_session)) {
-			std::cout << "Could not connect or I/O error: " << irc_strerror(irc_errno(m_irc_session)) << std::endl;
-			return;
+			log_warn(irc_log, "Connection IRC to "
+					<< Config::get_instance()->get_irc_server()
+					<< " lost, retrying in 30sec. Error was: "
+					<< irc_strerror(irc_errno(m_irc_session)));
+
+			std::this_thread::sleep_for(std::chrono::seconds(30));
 		}
 
-		std::cout << "Connection done !" << std::endl;
-	//}
-}
-
-void IRCThread::stop()
-{
-	Mail::delete_all_mail();
-	irc_disconnect(m_irc_session);
-}
-
-void IRCThread::event_connect(irc_session_t *session, const char *event, const char *origin,
-			const char **params, unsigned int count)
-{
-	if (!irc_is_connected(session)) {
-		std::cout << "Not connected to IRC" << std::endl;
-	}
-	std::cout << "Connected to IRC" << std::endl;
-
-	s_bot_name = std::string(params[0]);
-
-	if (irc_cmd_join(session, s_iis.channel.c_str(), NULL)) {
-		std::cerr << "Unable to join channel " << s_iis.channel << ", aborting." << std::endl;
-		irc_disconnect(session);
-	}
-
-}
-
-void IRCThread::event_join(irc_session_t *session, const char *event, const char *origin,
-			const char **params, unsigned int count)
-{
-	if (!irc_is_connected(session)) {
-		std::cerr << "Error: not connected to IRC on " << __FUNCTION__ << std::endl;
-		return;
-	}
-
-	std::cout << "Join channel" << std::endl;
-	std::string msg = "";
-	std::string ori = (std::string) origin;
-	std::string pseudo = ori.substr(0, ori.find("!"));
-	std::cout << s_bot_name << " et " << s_iis.nick << std::endl;
-
-	if (strcmp(pseudo.c_str(), s_bot_name.c_str()) != 0) {
-		std::string name = std::string(pseudo);
-		msg = "Salut " + name + " ! Tu vas bien ?";
-		std::string mail = "";
-		if (Mail::get_mail(name, mail)){
-			msg += " Tu as reçu un mail : " + mail;
+		if (m_irc_session) {
+			irc_destroy_session(m_irc_session);
+			m_irc_session = nullptr;
 		}
 	}
-	else
-		msg = "Salut " + s_iis.channel + " ! Vous allez bien ? ";
 
-	irc_cmd_msg(session, s_iis.channel.c_str(), msg.c_str());
+	return nullptr;
 }
 
-void IRCThread::event_channel(irc_session_t *session, const char *event, const char *origin,
-			const char **params, unsigned int count)
+
+
+void IRCThread::on_event_connect(const std::string &origin,
+								 const std::vector<std::string> &params)
 {
-	if (!irc_is_connected(session)) {
+	if (!is_connected()) {
+		log_error(irc_log, "Not connected to IRC " << __FUNCTION__);
+		return;
+	}
+
+	if (params.size() == 0) {
+		log_fatal(irc_log, __FUNCTION__ << ": invalid params size");
+		return;
+	}
+
+	set_name(std::string(params[0]));
+
+	log_info(irc_log, "Connected to IRC (name: " << params[0] << ")");
+
+	Router::get_instance()->on_irc_connection(std::string(params[0]));
+
+	// Join previously registered channels, we have been disconnected
+	for (const auto &ch: m_channels) {
+		irc_cmd_join(m_irc_session, ch.first.c_str(), NULL);
+	}
+}
+
+/**
+ * \param origin the person, who joins the channel. By comparing it with
+ *               your own nickname, you can check whether your JOIN
+ *               command succeed.
+ * \param params[0] mandatory, contains the channel name.
+ */
+void IRCThread::on_event_join(const std::string &origin,
+							  const std::vector<std::string> &params)
+{
+	if (!is_connected()) {
+		log_error(irc_log, "Not connected to IRC " << __FUNCTION__);
+		return;
+	}
+
+	if (params.size() == 0) {
+		log_fatal(irc_log, __FUNCTION__ << ": invalid params size");
+		return;
+	}
+
+	if (origin == m_name) {
+		// We joined
+		log_notice(irc_log, "Channel " << params[0] << " joined.");
+		register_channel(params[0]);
+		save_state();
+		// Ask server for topic
+		log_notice(irc_log, "Ask for topic returned: " <<
+													   irc_cmd_topic(m_irc_session, params[0].c_str(), NULL));
+	}
+	else {
+		// Somebody joined
+	}
+
+	Router::get_instance()->on_irc_channel_join(params[0], origin);
+}
+
+/**
+ * \param origin the person, who leaves the channel. By comparing it with
+ *               your own nickname, you can check whether your PART
+ *               command succeed.
+ * \param params[0] mandatory, contains the channel name.
+ * \param params[1] optional, contains the reason message (user-defined).
+ */
+void IRCThread::on_event_part(const std::string &origin,
+							  const std::vector<std::string> &params)
+{
+	if (!is_connected()) {
+		log_error(irc_log, "Not connected to IRC " << __FUNCTION__);
+		return;
+	}
+
+	if (params.size() == 0) {
+		log_fatal(irc_log, __FUNCTION__ << ": invalid params size");
+		return;
+	}
+
+	if (origin == m_name) {
+		// We joined
+		log_notice(irc_log, "Channel " << params[0] << " left.");
+		on_channel_leave(std::string(params[0]));
+		save_state();
+	}
+	else {
+		// Somebody joined
+	}
+
+	std::string reason = "";
+	if (params.size() == 2) {
+		reason = std::string(params[1]);
+	}
+
+	Router::get_instance()->on_irc_channel_part(params[0], origin, reason);
+}
+
+/**
+ * \param origin the person, who generates the message.
+ * \param params[0] mandatory, contains the channel name.
+ * \param params[1] optional, contains the message text
+ */
+void IRCThread::on_event_message(const std::string &origin,
+								 const std::vector<std::string> &params)
+{
+	if (!is_connected()) {
 		std::cerr << "Error: not connected to IRC on " << __FUNCTION__ << std::endl;
 		return;
 	}
 
-	if (strcmp(origin, IRCThread::s_bot_name.c_str()) == 0 || count == 1) {
+	if (params.size() == 0) {
+		log_fatal(irc_log, __FUNCTION__ << ": invalid params size");
 		return;
 	}
 
-	std::cout << "Event channel : " << params[0] << " : " << params[1] << std::endl;
-
-	if (params[1][0] == '.') {
-		std::string msg = "";
-		CommandHandler *command_handler = new CommandHandler(that, s_cfg, params[1], Permission::USER);
-		command_handler->start();
+	// Ignore own messages and empty messages
+	if (origin == m_name || params.size() == 1) {
+		return;
 	}
+
+	// If channel is private channel empty it
+	std::string channel = params[0];
+	if (channel.compare(m_name) == 0) {
+		channel = "";
+	}
+
+	Router::get_instance()->on_irc_message(channel, origin, params[1]);
 }
 
-void IRCThread::add_text(const std::string &text)
+void IRCThread::on_event_notice(const std::string &origin,
+								const std::vector<std::string> &params)
 {
-	irc_cmd_msg(m_irc_session, s_iis.channel.c_str(), text.c_str());
-}
-
-void IRCThread::event_numeric(irc_session_t *session, const char *event, const char *origin,
-			const char **params, unsigned int count)
-{
-
-}
-
-void IRCThread::event_privmsg(irc_session_t *session, const char *event, const char *origin, const char **params, unsigned int count)
-{
-	if (!irc_is_connected(session)) {
+	if (!is_connected()) {
 		std::cerr << "Error: not connected to IRC on " << __FUNCTION__ << std::endl;
 		return;
 	}
 
-	if (strcmp(origin, IRCThread::s_bot_name.c_str()) == 0 || count == 1) {
+	if (params.size() == 0) {
+		log_fatal(irc_log, __FUNCTION__ << ": invalid params size");
 		return;
 	}
-	std::string ori = (std::string) origin; 
-	std::string pseudo = ori.substr(0, ori.find("!"));
-	if (params[1][0] == '.') {
-		std::string msg = "";
-		CommandHandler *command_handler = new CommandHandler(that, s_cfg, params[1], Permission::USER);
-		command_handler->start();
+
+	if (origin == "NickServ") {
+		if (strstr(params[1].c_str(), "This nickname is registered") == params[1].c_str()) {
+			std::string ident_str = "IDENTIFY " + Config::get_instance()->get_irc_password();
+			irc_cmd_msg(m_irc_session, origin.c_str(), ident_str.c_str());
+		}
+		else if (strstr(params[1].c_str(), "You are now identified for") == params[1].c_str()) {
+			log_notice(irc_log, "IRC authentication succeed.");
+		}
+		else if (strstr(params[1].c_str(), "Invalid password for") == params[1].c_str()) {
+			log_error(irc_log, "Invalid IRC password!");
+		}
+	}
+
+	Router::get_instance()->on_irc_notice(params[0], origin, params[1]);
+}
+
+/*!
+ * The "kick" event is triggered upon receipt of a KICK message, which
+ * means that someone on a channel with the client (or possibly the
+ * client itself!) has been forcibly ejected.
+ *
+ * \param origin the person, who kicked the poor.
+ * \param params[0] mandatory, contains the channel name.
+ * \param params[0] optional, contains the nick of kicked person.
+ * \param params[1] optional, contains the kick text
+ */
+void IRCThread::on_event_kick(const std::string &origin,
+							  const std::vector<std::string> &params)
+{
+	log_debug(irc_log, __FUNCTION__);
+	if (!is_connected()) {
+		std::cerr << "Error: not connected to IRC on " << __FUNCTION__ << std::endl;
+		return;
+	}
+
+	if (params.size() < 2) {
+		log_fatal(irc_log, __FUNCTION__ << ": invalid params size");
+		return;
+	}
+
+	const std::string &channel_name = params[0];
+
+	if (params[1] == m_name) {
+		log_warn(irc_log, "I was kicked from " << channel_name << ", trying to re-join.");
+
+		// Remove channel from registered list
+		on_channel_leave(channel_name);
+		save_state();
+
+		if (irc_cmd_join(m_irc_session, params[0].c_str(), NULL)) {
+			log_error(irc_log, "Unable to join channel " << channel_name << ", ignoring.");
+		}
+	}
+
+	Router::get_instance()->on_irc_channel_kick(channel_name, params[1]);
+}
+
+void IRCThread::on_event_topic(const std::string &origin,
+							   const std::vector<std::string> &params)
+{
+	log_debug(irc_log, __FUNCTION__);
+	if (!is_connected()) {
+		std::cerr << "Error: not connected to IRC on " << __FUNCTION__ << std::endl;
+		return;
+	}
+
+	if (params.size() < 1) {
+		log_fatal(irc_log, __FUNCTION__ << ": invalid params size");
+		return;
+	}
+
+	std::string new_topic = "";
+	if (params.size() >= 2) {
+		new_topic = params[1];
+	}
+
+	Router::get_instance()->on_irc_topic(params[0], origin, new_topic);
+}
+
+void IRCThread::on_event_numeric(uint32_t event_id, const std::string &origin,
+								 const std::vector<std::string> &params)
+{
+	switch (event_id) {
+		case LIBIRC_RFC_RPL_TOPIC:
+		case LIBIRC_RFC_RPL_NOTOPIC: {
+			if (params.size() != 3) {
+				log_error(irc_log, __FUNCTION__ << ": invalid params size for event_id "
+												<< event_id)
+				return;
+			}
+
+			std::string topic;
+			if (params.size() == 3) {
+				topic = params[2];
+			}
+
+			set_channel_topic(params[1], topic);
+			Router::get_instance()->on_irc_topic(params[1], origin, topic);
+			break;
+		}
+		case LIBIRC_RFC_RPL_NAMREPLY: {
+			if (params.size() != 4) {
+				log_error(irc_log, __FUNCTION__ << ": invalid params size for event_id "
+												<< event_id)
+				return;
+			}
+
+			const std::string &channel_name = params[2];
+			if (m_names_queues.find(channel_name) == m_names_queues.end()) {
+				m_names_queues[channel_name] = std::queue<std::string>();
+			}
+
+			std::vector<std::string> names;
+			str_split(params[3], ' ', names);
+			for (const auto &n: names) {
+				m_names_queues[channel_name].push(n);
+			}
+			break;
+		}
+		case LIBIRC_RFC_RPL_ENDOFNAMES: {
+			if (params.size() != 3) {
+				log_error(irc_log, __FUNCTION__ << ": invalid params size for event_id "
+												<< event_id)
+				return;
+			}
+
+			const std::string &channel_name = params[1];
+			auto nq = m_names_queues.find(channel_name);
+			std::vector<std::string> channel_members;
+			if (nq != m_names_queues.end()) {
+				while (!nq->second.empty()) {
+					channel_members.push_back(nq->second.front());
+					nq->second.pop();
+				}
+
+				// Remove callback result from response cache
+				m_names_queues.erase(nq);
+			}
+
+			Router::get_instance()->on_irc_channel_members(channel_name, channel_members);
+			{
+				std::unique_lock<std::mutex> lock(m_mutex);
+				m_channels[channel_name]->members = channel_members;
+			}
+			break;
+		}
+			// Ignored params
+		case 333: // non-RFC RPL_TOPIC_EXTRA
+		case LIBIRC_RFC_RPL_MOTD:
+		case LIBIRC_RFC_RPL_MOTDSTART:
+		case LIBIRC_RFC_RPL_ENDOFMOTD:
+			break;
+		default:
+//			log_warn(irc_log, __FUNCTION__ << ": Received unhandled event_id "
+//				<< event_id);
+			break;
 	}
 }
+
+void IRCThread::register_channel(const std::string &channel_name)
+{
+	std::unique_lock<std::mutex> lock(m_mutex);
+	IRCChannel *channel = new IRCChannel();
+	channel->name = channel_name;
+	m_channels[channel_name] = channel;
+}
+
+void IRCThread::on_channel_leave(const std::string &channel_name)
+{
+	std::unique_lock<std::mutex> lock(m_mutex);
+	auto channel_it = m_channels.find(channel_name);
+	if (channel_it != m_channels.end()) {
+		delete channel_it->second;
+		m_channels.erase(channel_it);
+	}
+}
+
+void IRCThread::set_channel_topic(const std::string &channel_name,
+								  const std::string &topic)
+{
+	std::unique_lock<std::mutex> lock(m_mutex);
+	auto channel_it = m_channels.find(channel_name);
+	if (channel_it != m_channels.end()) {
+		channel_it->second->topic = topic;
+	}
+	else {
+		log_warn(irc_log, __FUNCTION__
+				<< ": setting channel topic on unregistered channel '"
+				<< channel_name << "', ignoring.");
+	}
+}
+
